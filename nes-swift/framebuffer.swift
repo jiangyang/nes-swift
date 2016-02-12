@@ -2,14 +2,12 @@
 import Foundation
 
 class FrameBuffer {
-//  var pix: [UInt8]
   var pix: UnsafeMutablePointer<UInt8>
   let stride: Int = 256 * 4
   let w: Int = 256
   let h: Int = 240
   
   init() {
-//    pix = [UInt8](count: stride * h, repeatedValue: 0)
     pix = UnsafeMutablePointer<UInt8>(malloc(stride * h * sizeof(UInt8)))
     for i in 0..<(stride * h) {
       if i % 4 == 3 {
