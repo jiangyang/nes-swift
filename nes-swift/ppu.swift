@@ -1,6 +1,8 @@
+import Foundation
+
 class PPU {
   // storage
-  var palette, nameTable, oam: [UInt8]
+  var palette, nameTable, oam: UnsafeMutablePointer<UInt8>
   var frontBuffer, backBuffer: FrameBuffer
   // registers
   // OAMDATA is emulated using read/write funcs into oam above
@@ -23,46 +25,50 @@ class PPU {
   
   // sprite
   var spriteCount: Int
-  var spritePatterns: [UInt32]
-  var spritePositions, spritePriorities, spriteIndexes : [UInt8]
+  var spritePatterns: UnsafeMutablePointer<UInt32>
+  var spritePositions, spritePriorities, spriteIndexes : UnsafeMutablePointer<UInt8>
   
   // nmi
   var nmiDelay: Int
   var nmiPrev: Bool
   
-  // arbitrary register bit flag to compare with calculated prop
+  // use ivar instead of calculated prop for perf :(
+  // PPUCTRL
+  var baseNameTableAddr: Int
+  var vramIncrement: Bool
+  var spritePatternTable: Bool
+  var backgroundPatternTable: Bool
+  var spriteSize: Bool
+  var nmiEnabled: Bool
+  // PPUMASK
   var showBackground: Bool
   var showSprites: Bool
   var showBackgroundInLeft8Pixel: Bool
   var showSpriteInLeft8Pixel : Bool
   
   // 0 0x2000, 1 0x2400, 2 0x2800, 3 0x2c00
-  var baseNameTableAddr: Int {
+  var baseNameTableAddrCalculated: Int {
     return Int(PPUCTRL & 3)
   }
   
   // false: +1, true: +32
-  var vramIncrement: Bool {
+  var vramIncrementCaluculated: Bool {
     return PPUCTRL.getBit(2)
   }
   // false: 0, true: 0x1000
-  var spritePatternTable: Bool {
+  var spritePatternTableCalculated: Bool {
     return PPUCTRL.getBit(3)
   }
   // false: 0, true: 0x1000
-  var backgroundPatternTable: Bool {
+  var backgroundPatternTableCalculated: Bool {
     return PPUCTRL.getBit(4)
   }
   
-  var spriteSize: Bool {
+  var spriteSizeCalculated: Bool {
     return PPUCTRL.getBit(5)
   }
   
-  var masterSlave: Bool {
-    return PPUCTRL.getBit(6)
-  }
-  
-  var nmiEnabled: Bool {
+  var nmiEnabledCalculated: Bool {
     return PPUCTRL.getBit(7)
   }
   
@@ -134,9 +140,9 @@ class PPU {
 
   
   init() {
-    palette = [UInt8](count: 32, repeatedValue: 0)
-    nameTable = [UInt8](count: 2048, repeatedValue: 0)
-    oam = [UInt8](count: 256, repeatedValue: 0)
+    palette = UnsafeMutablePointer<UInt8>(malloc(32 * sizeof(UInt8)))
+    nameTable = UnsafeMutablePointer<UInt8>(malloc(2048 * sizeof(UInt8)))
+    oam = UnsafeMutablePointer<UInt8>(malloc(256 * sizeof(UInt8)))
     frontBuffer = FrameBuffer()
     backBuffer = FrameBuffer()
     
@@ -162,13 +168,20 @@ class PPU {
     highTileByte = 0
     
     spriteCount = 0
-    spritePatterns = [UInt32](count: 8, repeatedValue: 0)
-    spritePositions = [UInt8](count: 8, repeatedValue: 0)
-    spritePriorities = [UInt8](count: 8, repeatedValue: 0)
-    spriteIndexes = [UInt8](count: 8, repeatedValue: 0)
+    spritePatterns = UnsafeMutablePointer<UInt32>(malloc(8 * sizeof(UInt32)))
+    spritePositions = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
+    spritePriorities = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
+    spriteIndexes = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
     
     nmiDelay = 0
     nmiPrev = false
+    
+    baseNameTableAddr = 0
+    vramIncrement = false
+    spritePatternTable = false
+    backgroundPatternTable = false
+    spriteSize = false
+    nmiEnabled = false
     
     showBackground = false
     showSprites = false
@@ -179,7 +192,7 @@ class PPU {
   func readByte(addr: UInt16, c: Cartridge) -> UInt8 {
     let a = addr % 0x4000
     if a < 0x2000 {
-      return c.mapper!.read(a, c: c)
+      return c.mapper.read(a, c: c)
     } else if a < 0x3f00 {
       let mirrorMode = Int(c.mirrorMode)
       return nameTable[mirrorAddress(mirrorMode, addr: a) % 2048]
@@ -193,7 +206,7 @@ class PPU {
   func writeByte(addr: UInt16, value: UInt8, c: Cartridge) {
     let a = addr % 0x4000
     if a < 0x2000 {
-      c.mapper!.write(a, value: value, c: c)
+      c.mapper.write(a, value: value, c: c)
     } else if a < 0x3f00 {
       let mirrorMode = Int(c.mirrorMode)
       nameTable[mirrorAddress(mirrorMode, addr: a) % 2048] = value
@@ -241,6 +254,12 @@ class PPU {
     switch addr {
     case 0x2000:
       PPUCTRL = value
+      baseNameTableAddr = baseNameTableAddrCalculated
+      vramIncrement = vramIncrementCaluculated
+      spritePatternTable = spritePatternTableCalculated
+      backgroundPatternTable = backgroundPatternTableCalculated
+      spriteSize = spriteSizeCalculated
+      nmiEnabled = nmiEnabledCalculated
       nmiChange()
       tempAddr = (tempAddr & 0xf3ff) | ((UInt16(value) & 0x03) << 10)
     case 0x2001:
@@ -310,15 +329,15 @@ class PPU {
       }
     }
     
-    if rendering && !frameCountEven && scanLineCount == 261 && cycleCount == 339 {
-      cycleCount = 0
+    if self.cycleCount == 339 && self.scanLineCount == 261 && !self.frameCountEven && rendering {
+      self.cycleCount = 0
       scanLineCount = 0
       frameCount = frameCount &+ 1
       frameCountEven = !frameCountEven
     } else {
-      cycleCount = cycleCount &+ 1
-      if cycleCount > 340 {
-        cycleCount = 0
+      self.cycleCount = self.cycleCount &+ 1
+      if self.cycleCount > 340 {
+        self.cycleCount = 0
         scanLineCount = scanLineCount &+ 1
         if scanLineCount > 261 {
           scanLineCount = 0
@@ -328,6 +347,7 @@ class PPU {
       }
     }
     
+    let cycleCount = self.cycleCount
     let preLine = scanLineCount == 261
     let visibleLine = scanLineCount < 240
     let renderLine = preLine || visibleLine
@@ -430,9 +450,7 @@ class PPU {
         color = bg
       }
     }
-    let index = Int(readPalette(UInt16(color)) % 64)
-    let colorActual = ColorPalette[index]
-    backBuffer.set(x: x, y: y, color: colorActual)
+    backBuffer.set(x: x, y: y, colorIndex: Int(readPalette(UInt16(color)) % 64))
   }
   
   func backgroundPixel() -> UInt8 {
@@ -444,7 +462,7 @@ class PPU {
   }
   
   func spritePixel() -> (index: UInt8,  color: UInt8){
-    guard showSprites else {
+    if !showSprites {
       return (index: 0, color: 0)
     }
     for i in 0..<spriteCount {

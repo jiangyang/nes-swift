@@ -67,8 +67,8 @@ class Mapper1 : Mapper {
     chrBank0 = 0
     chrBank1 = 0
     prgBank = 0
-    cartridgePRGSize = c.PRGROM.count
-    cartridgeCHRSize = c.CHRROM.count
+    cartridgePRGSize = c.prgBytes
+    cartridgeCHRSize = c.chrBytes
     prgOffsets = [0, 0]
     chrOffsets = [0, 0]
     prgOffsets[1] = Mapper1.prgBankOffset(-1, prgSize: cartridgePRGSize)

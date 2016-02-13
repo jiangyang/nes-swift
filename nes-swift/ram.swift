@@ -1,3 +1,4 @@
+import Foundation
 // mapped memory access
 // nes has 16 bit addressing for 64k memory
 // but a lot of address space is just mirrors for previous addresses
@@ -9,7 +10,7 @@ class RAM {
   // within this, 0x0800 - 0x1fff is just repeated mirrors to 0x0000 - 0x07ff
   // so in essence, we only need physical space for 0x0000 - 0x07ff (2k addresses)
   let RAM_SIZE = 2048
-  var ram : [UInt8]
+  var ram : UnsafeMutablePointer<UInt8>
   // ppu registers
   // apu registers
   // io, game pak and controllers etc
@@ -25,7 +26,7 @@ class RAM {
   }
   
   init(cpu: CPU, ppu: PPU, apu: APU, cartridge: Cartridge, controller1: Controller, controller2: Controller) {
-    ram = [UInt8](count: RAM_SIZE, repeatedValue: 0)
+    ram = UnsafeMutablePointer<UInt8>(malloc(RAM_SIZE * sizeof(UInt8)))
     self.cpu = cpu
     self.ppu = ppu
     self.apu = apu
@@ -75,7 +76,7 @@ class RAM {
     } else if addr == 0x4017 {
       return controller2.read()
     } else if addr >= 0x6000 && addr <= 0xffff {
-      let m = cartridge.mapper!
+      let m = cartridge.mapper
       return m.read(addr, c: cartridge)
     } else {
       return 0
@@ -99,7 +100,7 @@ class RAM {
     } else if addr == 0x4017 {
       apu.writeRegister(addr, value: value)
     } else if addr >= 0x6000 {
-      let m = cartridge.mapper!
+      let m = cartridge.mapper
       m.write(addr, value: value, c: cartridge)
     }
   }

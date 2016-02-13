@@ -4,13 +4,13 @@ class Mapper0 : Mapper {
   var bank1Offset: Int
   
   init(c: Cartridge) {
-    numPRGBanks = c.PRGROM.count / 0x4000
+    numPRGBanks = c.prgBytes / 0x4000
     bank0Offset = 0
     bank1Offset = numPRGBanks - 1
   }
   
   func read(addr: UInt16, c:Cartridge) -> UInt8 {
-    if addr <= 0x1fff {
+    if addr < 0x2000 {
       // PPU - CHRROM
       return c.CHRROM[Int(addr)]
     } else if addr >= 0x6000 && addr <= 0x7fff {
@@ -28,7 +28,7 @@ class Mapper0 : Mapper {
   }
   
   func write(addr: UInt16, value: UInt8, c: Cartridge) {
-    if addr <= 0x1fff {
+    if addr < 0x2000 {
       // PPU CHRROM
       c.CHRROM[Int(addr)] = value
     } else if addr >= 0x6000 && addr <= 0x7fff {

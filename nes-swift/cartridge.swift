@@ -7,29 +7,27 @@ enum NESFileError : ErrorType {
   case MapperNotImplemented(UInt8)
 }
 
+let PRG_BANK_SIZE = 16384
+let CHR_BANK_SIZE = 8192
+
 class Cartridge {
-  var PRGROM: [UInt8]
-  var CHRROM: [UInt8]
-  var SRAM: [UInt8]
-  var mapperType: UInt8
   var mirrorMode: UInt8
-  var mapper: Mapper?
   var battery: Bool
+  var prgBytes, chrBytes: Int
+  var SRAM: [UInt8]
+  var PRGROM: UnsafeMutablePointer<UInt8>
+  var CHRROM: UnsafeMutablePointer<UInt8>
+  var mapper: Mapper!
   
-  init() {
-    PRGROM = [UInt8]()
-    CHRROM = [UInt8]()
+  init(path: String) throws {
     SRAM = [UInt8](count: 2000, repeatedValue: 0)
-    mapperType = 0
     mirrorMode = 0
     battery = false
-  }
-  
-  deinit {
-    print("Cartridge deinit")
-  }
-  
-  func fromNESFile(path: String) throws {
+    prgBytes = 0
+    chrBytes = 0
+    PRGROM = UnsafeMutablePointer<UInt8>(malloc(32 * PRG_BANK_SIZE * sizeof(UInt8)))
+    CHRROM = UnsafeMutablePointer<UInt8>(malloc(32 * CHR_BANK_SIZE * sizeof(UInt8)))
+    
     if let content = NSData(contentsOfFile: path) {
       var header = [UInt8](count: 16, repeatedValue: 0)
       // read 16 byte header
@@ -55,7 +53,7 @@ class Cartridge {
       
       let mapperHi = flags7 >> 4
       let mapperLo = flags6 >> 4
-      mapperType = (mapperHi << 4) | mapperLo
+      let mapperType = (mapperHi << 4) | mapperLo
       
       let mirrorHi = (flags6 >> 3) & 1
       let mirrorLo = flags6 & 1
@@ -74,17 +72,17 @@ class Cartridge {
       }
       
       // read PRG-ROM
-      PRGROM = [UInt8](count: prgs * 16384, repeatedValue: 0)
-      content.getBytes(&PRGROM, range: NSRange(location: offset, length: prgs * 16384))
-      offset += prgs * 16384
+      content.getBytes(PRGROM, range: NSRange(location: offset, length: prgs * PRG_BANK_SIZE))
+      offset += prgs * PRG_BANK_SIZE
+      prgBytes = prgs * PRG_BANK_SIZE
       
       // read CHR-ROM
       if chrs < 1 {
-        CHRROM = [UInt8](count: 8192, repeatedValue: 0)
+        chrBytes = CHR_BANK_SIZE
       } else {
-        CHRROM = [UInt8](count: chrs * 8192, repeatedValue: 0)
-        content.getBytes(&CHRROM, range: NSRange(location: offset, length: chrs * 8192))
-        offset += chrs * 8192
+        content.getBytes(CHRROM, range: NSRange(location: offset, length: chrs * CHR_BANK_SIZE))
+        offset += chrs * CHR_BANK_SIZE
+        chrBytes = chrs * CHR_BANK_SIZE
       }
       // there may be playchoice rom stuff and title info at the end of the file, not considered now
       
@@ -101,6 +99,5 @@ class Cartridge {
     } else {
       throw NESFileError.FileNotLoaded
     }
-    
   }
 }

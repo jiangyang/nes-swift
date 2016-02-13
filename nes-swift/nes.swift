@@ -8,9 +8,15 @@ class NES {
   var c1, c2 : Controller!
   
   init? (path: String) {
-    let c = Cartridge()
     do {
-      try c.fromNESFile(path)
+      let c = try Cartridge(path: path)
+      c1 = Controller()
+      c2 = Controller()
+      cpu = CPU()
+      ppu = PPU()
+      apu = APU(out: AudioOut(), sampleRate: 0)
+      ram = RAM(cpu: cpu, ppu: ppu, apu: apu, cartridge: c, controller1: c1, controller2: c2)
+      cpu.PC = ram.read2Byte(0xfffc)
     } catch NESFileError.FileNotLoaded {
       print("file not loaded")
       return nil
@@ -27,14 +33,6 @@ class NES {
       print("oh snap \(err)")
       return nil
     }
-
-    c1 = Controller()
-    c2 = Controller()
-    cpu = CPU()
-    ppu = PPU()
-    apu = APU(out: AudioOut(), sampleRate: 0)
-    ram = RAM(cpu: cpu, ppu: ppu, apu: apu, cartridge: c, controller1: c1, controller2: c2)
-    cpu.PC = ram.read2Byte(0xfffc)
   }
   
   func step() -> Int {

@@ -27,7 +27,6 @@ class GameView: MTKView {
   
   override func viewDidMoveToWindow() {
     super.viewDidMoveToWindow()
-    preferredFramesPerSecond = 60
     device = MTLCreateSystemDefaultDevice()
     guard let _ = device else {
       Swift.print("no device")
