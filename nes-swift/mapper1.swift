@@ -71,7 +71,7 @@ class Mapper1 : Mapper {
     cartridgeCHRSize = c.chrBytes
     prgOffsets = [0, 0]
     chrOffsets = [0, 0]
-    prgOffsets[1] = Mapper1.prgBankOffset(-1, prgSize: cartridgePRGSize)
+    prgOffsets[1] = Mapper1.prgBankOffset(index:-1, prgSize: cartridgePRGSize)
   }
   
   func read(addr: UInt16, c:Cartridge) -> UInt8 {
@@ -111,7 +111,7 @@ class Mapper1 : Mapper {
       c.SRAM[Int(addr - 0x6000)] = value
     // PRG ROM
     case 0x8000...0xffff:
-      self.updateLoad(addr, value: value, c: c)
+      self.updateLoad(addr:addr, value: value, c: c)
     default:
       break
     }
@@ -120,13 +120,13 @@ class Mapper1 : Mapper {
   func updateLoad(addr: UInt16, value: UInt8, c: Cartridge) {
     if value & 0x80 == 0x80 {
       shift = 0x10
-      updateControl(control | 0x0c, c: c)
+      updateControl(value:control | 0x0c, c: c)
     } else {
       let done = shift & 1 == 1
       shift = shift >> 1
       shift = shift | ((value & 1) << 4)
       if done {
-        updateRegisters(addr, value: shift, c: c)
+        updateRegisters(addr:addr, value: shift, c: c)
         shift = 0x10
       }
     }
@@ -135,7 +135,7 @@ class Mapper1 : Mapper {
   func updateRegisters(addr: UInt16, value: UInt8, c: Cartridge){
     switch UInt32(addr) {
     case 0x8000...0x9fff:
-      updateControl(value, c: c)
+      updateControl(value:value, c: c)
     case 0xa000...0xbfff:
       chrBank0 = value
       updateOffsets()
@@ -159,25 +159,25 @@ class Mapper1 : Mapper {
   func updateOffsets() {
     switch CHRMode {
     case 0:
-      chrOffsets[0] = Mapper1.chrBankOffset(Int(chrBank0 & 0xfe), chrSize: cartridgeCHRSize)
-      chrOffsets[1] = Mapper1.chrBankOffset(Int(chrBank0 & 0x01), chrSize: cartridgeCHRSize)
+      chrOffsets[0] = Mapper1.chrBankOffset(index:Int(chrBank0 & 0xfe), chrSize: cartridgeCHRSize)
+      chrOffsets[1] = Mapper1.chrBankOffset(index:Int(chrBank0 & 0x01), chrSize: cartridgeCHRSize)
     case 1:
-      chrOffsets[0] = Mapper1.chrBankOffset(Int(chrBank0), chrSize: cartridgeCHRSize)
-      chrOffsets[1] = Mapper1.chrBankOffset(Int(chrBank1), chrSize: cartridgeCHRSize)
+      chrOffsets[0] = Mapper1.chrBankOffset(index:Int(chrBank0), chrSize: cartridgeCHRSize)
+      chrOffsets[1] = Mapper1.chrBankOffset(index:Int(chrBank1), chrSize: cartridgeCHRSize)
     default:
       break
     }
     
     switch PRGMode {
     case 0...1:
-      prgOffsets[0] = Mapper1.prgBankOffset(Int(prgBank & 0xfe), prgSize: cartridgePRGSize)
-      prgOffsets[1] = Mapper1.prgBankOffset(Int(prgBank | 0x01), prgSize: cartridgePRGSize)
+      prgOffsets[0] = Mapper1.prgBankOffset(index:Int(prgBank & 0xfe), prgSize: cartridgePRGSize)
+      prgOffsets[1] = Mapper1.prgBankOffset(index:Int(prgBank | 0x01), prgSize: cartridgePRGSize)
     case 2:
       prgOffsets[0] = 0
-      prgOffsets[1] = Mapper1.prgBankOffset(Int(prgBank), prgSize: cartridgePRGSize)
+      prgOffsets[1] = Mapper1.prgBankOffset(index:Int(prgBank), prgSize: cartridgePRGSize)
     case 3:
-      prgOffsets[0] = Mapper1.prgBankOffset(Int(prgBank), prgSize: cartridgePRGSize)
-      prgOffsets[1] = Mapper1.prgBankOffset(-1, prgSize: cartridgePRGSize)
+      prgOffsets[0] = Mapper1.prgBankOffset(index:Int(prgBank), prgSize: cartridgePRGSize)
+      prgOffsets[1] = Mapper1.prgBankOffset(index:-1, prgSize: cartridgePRGSize)
     default:
       break
     }

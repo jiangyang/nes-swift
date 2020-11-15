@@ -61,13 +61,13 @@ class Triangle {
         dutyValue = (dutyValue + 1) % 32
       }
     } else {
-      timerValue--
+      timerValue-=1
     }
   }
   
   func stepLength() {
     if lengthEnabled && lengthValue > 0 {
-      lengthValue--
+      lengthValue-=1
     }
   }
   
@@ -75,7 +75,7 @@ class Triangle {
     if counterReload {
       counterValue = counterPeriod
     } else if counterValue > 0 {
-      counterValue--
+      counterValue-=1
     }
     if lengthEnabled {
       counterReload = false

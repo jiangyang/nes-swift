@@ -112,57 +112,57 @@ class CPU {
   }
   // stack ops
   func pushByte(value: UInt8, ram: RAM) {
-    ram.writeByte(UInt16(SP) | 0x0100, value: value)
+    ram.writeByte(addr:UInt16(SP) | 0x0100, value: value)
     SP = SP &- 1
   }
   
   func popByte(ram:RAM) -> UInt8 {
     SP = SP &+ 1
-    return ram.readByte(UInt16(SP) | 0x0100)
+    return ram.readByte(addr:UInt16(SP) | 0x0100)
   }
   
   func push2Byte(value: UInt16, ram:RAM) {
     let hi8 = UInt8(value >> 8)
     let lo8 = UInt8(value & 0xff)
-    pushByte(hi8, ram: ram)
-    pushByte(lo8, ram: ram)
+    pushByte(value:hi8, ram: ram)
+    pushByte(value:lo8, ram: ram)
   }
   
   func pop2Byte(ram:RAM) -> UInt16 {
-    let lo8 = popByte(ram)
-    let hi8 = popByte(ram)
+    let lo8 = popByte(ram:ram)
+    let hi8 = popByte(ram:ram)
     return (UInt16(hi8) << 8) | UInt16(lo8)
   }
   
   func nmi(ram:RAM) -> Int {
-    push2Byte(PC, ram:ram)
-    pushByte(P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram:ram)
-    PC = ram.read2Byte(0xfffa)
-    setStatusI(true)
+    push2Byte(value:PC, ram:ram)
+    pushByte(value:P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram:ram)
+    PC = ram.read2Byte(atAddr:0xfffa)
+    setStatusI(should:true)
     return 7
   }
   
   func irq(ram:RAM) -> Int {
-    push2Byte(PC, ram:ram)
-    pushByte(P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram:ram)
-    PC = ram.read2Byte(0xfffe)
-    setStatusI(true)
+    push2Byte(value:PC, ram:ram)
+    pushByte(value:P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram:ram)
+    PC = ram.read2Byte(atAddr:0xfffe)
+    setStatusI(should:true)
     return 7
   }
   
   func step(ram: RAM) -> Int {
     guard suspend == 0 else {
-      suspend--
+      suspend-=1
       return 1
     }
     
     var cycleDelta = 0
     switch(interrupt) {
     case .NMI:
-      cycleDelta += nmi(ram)
+      cycleDelta += nmi(ram: ram)
     case .IRQ:
       if !getStatusI() {
-        cycleDelta += irq(ram)
+        cycleDelta += irq(ram: ram)
       }
     case .RST:
       fallthrough
@@ -171,9 +171,9 @@ class CPU {
     }
     interrupt = Interrupt.NONE
     
-    let opCode = ram.readByte(PC)
+    let opCode = ram.readByte(addr:PC)
     let op = OPTable[Int(opCode)]
-    cycleDelta += op.exec(self, ram: ram)
+    cycleDelta += op.exec(cpu: self, ram: ram)
     cycleCount = cycleCount &+ UInt64(cycleDelta)
     return cycleDelta
   }

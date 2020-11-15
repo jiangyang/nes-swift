@@ -16,7 +16,7 @@ class NES {
       ppu = PPU()
       apu = APU(out: AudioOut(), sampleRate: 0)
       ram = RAM(cpu: cpu, ppu: ppu, apu: apu, cartridge: c, controller1: c1, controller2: c2)
-      cpu.PC = ram.read2Byte(0xfffc)
+      cpu.PC = ram.read2Byte(atAddr:0xfffc)
     } catch NESFileError.FileNotLoaded {
       print("file not loaded")
       return nil
@@ -36,12 +36,12 @@ class NES {
   }
   
   func step() -> Int {
-    let cyclesDelta = cpu.step(ram)
+    let cyclesDelta = cpu.step(ram:ram)
     for _ in 0..<(cyclesDelta * 3) {
       ppu.step(cpu: cpu, ram: ram)
     }
     for _ in 0..<cyclesDelta {
-      apu.step(ram)
+      apu.step(ram:ram)
     }
     return cyclesDelta
   }
@@ -58,6 +58,6 @@ class NES {
 
 // dummy audio device
 class AudioOut {}
-infix operator <- {}
+infix operator <-
 func <- (lhs: AudioOut, rhs: Float32) {}
 

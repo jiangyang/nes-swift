@@ -297,29 +297,29 @@ struct OP {
     var addr: UInt16 = 0
     switch(addrMode!) {
     case .Absolute:
-      addr = ram.read2Byte(cpu.PC &+ 1)
+      addr = ram.read2Byte(atAddr:cpu.PC &+ 1)
     case .AbsoluteX:
-      addr = ram.read2Byte(cpu.PC &+ 1) &+ UInt16(cpu.X)
-      pageX = RAM.pageXAt(addr &- UInt16(cpu.X), fromAddr: addr)
+      addr = ram.read2Byte(atAddr:cpu.PC &+ 1) &+ UInt16(cpu.X)
+      pageX = RAM.pageXAt(addr1:addr &- UInt16(cpu.X), fromAddr: addr)
     case .AbsoluteY:
-      addr = ram.read2Byte(cpu.PC &+ 1) &+ UInt16(cpu.Y)
-      pageX = RAM.pageXAt(addr &- UInt16(cpu.Y), fromAddr: addr)
+      addr = ram.read2Byte(atAddr:cpu.PC &+ 1) &+ UInt16(cpu.Y)
+      pageX = RAM.pageXAt(addr1:addr &- UInt16(cpu.Y), fromAddr: addr)
     case .Indirect:
-      addr = ram.read2ByteBug(ram.read2Byte(cpu.PC &+ 1))
+      addr = ram.read2ByteBug(atAddr:ram.read2Byte(atAddr:cpu.PC &+ 1))
     case .IndexedIndirect:
-      addr = ram.read2ByteBug(UInt16(ram.readByte(cpu.PC &+ 1) &+ cpu.X))
+      addr = ram.read2ByteBug(atAddr:UInt16(ram.readByte(addr:cpu.PC &+ 1) &+ cpu.X))
     case .IndirectIndexed:
-      addr = ram.read2ByteBug(UInt16(ram.readByte(cpu.PC &+ 1))) &+ UInt16(cpu.Y)
-      pageX = RAM.pageXAt(addr &- UInt16(cpu.Y), fromAddr: addr)
+      addr = ram.read2ByteBug(atAddr:UInt16(ram.readByte(addr:cpu.PC &+ 1))) &+ UInt16(cpu.Y)
+      pageX = RAM.pageXAt(addr1:addr &- UInt16(cpu.Y), fromAddr: addr)
     case .Relative:
-      let offset = UInt16(ram.readByte(cpu.PC &+ 1))
+      let offset = UInt16(ram.readByte(addr:cpu.PC &+ 1))
       addr = offset <  0x80 ? cpu.PC &+ 2 &+ offset : cpu.PC &+ 2 &+ offset &- 0x100
     case .ZeroPage:
-      addr = UInt16(ram.readByte(cpu.PC &+ 1))
+      addr = UInt16(ram.readByte(addr:cpu.PC &+ 1))
     case .ZeroPageX:
-      addr = UInt16(ram.readByte(cpu.PC &+ 1) &+ cpu.X)
+      addr = UInt16(ram.readByte(addr:cpu.PC &+ 1) &+ cpu.X)
     case .ZeroPageY:
-      addr = UInt16(ram.readByte(cpu.PC &+ 1) &+ cpu.Y)
+      addr = UInt16(ram.readByte(addr:cpu.PC &+ 1) &+ cpu.Y)
     case .Immediate:
       addr = cpu.PC &+ 1
     case .Accumulator:
@@ -347,24 +347,24 @@ struct OP {
     //         V 	Overflow Flag 	  Set if sign bit is incorrect
     //         N 	Negative Flag 	  Set if bit 7 set
     case .ADC:
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       
       let acc = cpu.A
       let carry : UInt8 = cpu.getStatusC() ? 1 : 0
       cpu.A = acc &+ operand &+ carry
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       if Int(acc) + Int(operand) + Int(carry) > 0xff {
-        cpu.setStatusC(true)
+        cpu.setStatusC(should:true)
       } else {
-        cpu.setStatusC(false)
+        cpu.setStatusC(should:false)
       }
       // basically signed overflow
       // acc and add have same sign and different from the result
       if (acc^operand) & 0x80 == 0 && (acc^cpu.A) & 0x80 != 0 {
-        cpu.setStatusV(true)
+        cpu.setStatusV(should:true)
       } else {
-        cpu.setStatusV(false)
+        cpu.setStatusV(should:false)
       }
     // A logical AND is performed, bit by bit, on the accumulator contents
     // using the contents of a byte of memory.
@@ -377,10 +377,10 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 set
     case .AND:
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       cpu.A = cpu.A & operand
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A&0x80 != 0)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A&0x80 != 0)
     // This operation shifts all the bits of the memory contents one bit
     // left. Bit 0 is set to 0 and bit 7 is placed in the carry flag. The
     // effect of this operation is to multiply the memory contents by 2
@@ -397,17 +397,17 @@ struct OP {
     case .ASL:
       var operand: UInt8
       if addrMode == .Accumulator {
-        cpu.setStatusC((cpu.A >> 7) & 1 != 0)
+        cpu.setStatusC(should:(cpu.A >> 7) & 1 != 0)
         cpu.A <<= 1
         operand = cpu.A
       } else {
-        operand = ram.readByte(addr)
-        cpu.setStatusC((operand >> 7) & 1 != 0)
+        operand = ram.readByte(addr:addr)
+        cpu.setStatusC(should:(operand >> 7) & 1 != 0)
         operand <<= 1
-        ram.writeByte(addr, value: operand)
+        ram.writeByte(addr:addr, value: operand)
       }
-      cpu.setStatusZ(operand == 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      cpu.setStatusZ(should:operand == 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
     // If the carry flag is clear then add the relative displacement to
     // the program counter to cause a branch to a new location.
     //
@@ -423,7 +423,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -442,7 +442,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -461,7 +461,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -479,10 +479,10 @@ struct OP {
     //         V 	Overflow Flag 	  Set to bit 6 of the memory value
     //         N 	Negative Flag 	  Set to bit 7 of the memory value
     case .BIT:
-      let operand = ram.readByte(addr)
-      cpu.setStatusZ(operand & cpu.A == 0)
-      cpu.setStatusV((operand >> 6) & 1 != 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      let operand = ram.readByte(addr:addr)
+      cpu.setStatusZ(should:operand & cpu.A == 0)
+      cpu.setStatusV(should:(operand >> 6) & 1 != 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
     // If the negative flag is set then add the relative displacement to
     // the program counter to cause a branch to a new location.
     //
@@ -498,7 +498,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -517,7 +517,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -536,7 +536,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -554,10 +554,10 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .BRK:
-      cpu.push2Byte(cpu.PC, ram:ram)
-      cpu.pushByte(cpu.P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram: ram)// .PHP
-      cpu.setStatusI(true)// .SEI
-      cpu.PC = ram.read2Byte(0xfffe)
+      cpu.push2Byte(value:cpu.PC, ram:ram)
+      cpu.pushByte(value:cpu.P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram: ram)// .PHP
+      cpu.setStatusI(should:true)// .SEI
+      cpu.PC = ram.read2Byte(atAddr:0xfffe)
       
     // If the overflow flag is clear then add the relative displacement to
     // the program counter to cause a branch to a new location.
@@ -574,7 +574,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -594,7 +594,7 @@ struct OP {
         let oldPC = cpu.PC
         cpu.PC = addr
         cycleDelta += 1
-        if RAM.pageXAt(oldPC, fromAddr: addr) {
+        if RAM.pageXAt(addr1:oldPC, fromAddr: addr) {
           cycleDelta += 1
         }
       }
@@ -609,7 +609,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .CLC:
-      cpu.setStatusC(false)
+      cpu.setStatusC(should:false)
       
     // Set the decimal mode flag to zero.
     //
@@ -621,7 +621,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .CLD:
-      cpu.setStatusD(false)
+      cpu.setStatusD(should:false)
       
     // Clears the interrupt disable flag allowing normal interrupt
     // requests to be serviced.
@@ -634,7 +634,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .CLI:
-      cpu.setStatusI(false)
+    cpu.setStatusI(should:false)
       
     // Clears the interrupt disable flag allowing normal interrupt
     // requests to be serviced.
@@ -647,7 +647,7 @@ struct OP {
     //         V 	Overflow Flag 	  Set to 0
     //         N 	Negative Flag 	  Not affected
     case .CLV:
-      cpu.setStatusV(false)
+      cpu.setStatusV(should:false)
       
     // This instruction compares the contents of the accumulator with
     // another memory held value and sets the zero and carry flags as
@@ -661,11 +661,11 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of the result is set
     case .CMP:
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       let d = Int(cpu.A) - Int(operand)
-      cpu.setStatusZ(d == 0)
-      cpu.setStatusN(d & 0x80 != 0)
-      cpu.A >= operand ? cpu.setStatusC(true) : cpu.setStatusC(false)
+      cpu.setStatusZ(should:d == 0)
+      cpu.setStatusN(should:d & 0x80 != 0)
+      cpu.A >= operand ? cpu.setStatusC(should:true) : cpu.setStatusC(should:false)
       
     // This instruction compares the contents of the X register with
     // another memory held value and sets the zero and carry flags as
@@ -679,11 +679,11 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of the result is set
     case .CPX:
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       let d = Int(cpu.X) - Int(operand)
-      cpu.setStatusZ(d == 0)
-      cpu.setStatusN(d & 0x80 != 0)
-      cpu.X >= operand ? cpu.setStatusC(true) : cpu.setStatusC(false)
+      cpu.setStatusZ(should:d == 0)
+      cpu.setStatusN(should:d & 0x80 != 0)
+      cpu.X >= operand ? cpu.setStatusC(should:true) : cpu.setStatusC(should:false)
 
     // This instruction compares the contents of the Y register with
     // another memory held value and sets the zero and carry flags as
@@ -697,11 +697,11 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of the result is set
     case .CPY:
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       let d = Int(cpu.Y) - Int(operand)
-      cpu.setStatusZ(d == 0)
-      cpu.setStatusN(d & 0x80 != 0)
-      cpu.Y >= operand ? cpu.setStatusC(true) : cpu.setStatusC(false)
+      cpu.setStatusZ(should:d == 0)
+      cpu.setStatusN(should:d & 0x80 != 0)
+      cpu.Y >= operand ? cpu.setStatusC(should:true) : cpu.setStatusC(should:false)
 
       
     // Subtracts one from the value held at a specified memory location
@@ -715,10 +715,10 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of the result is set
     case .DEC:
-      let v = ram.readByte(addr) &- 1
-      ram.writeByte(addr, value: v)
-      cpu.setStatusZ(v == 0)
-      cpu.setStatusN(v & 0x80 != 0)
+      let v = ram.readByte(addr:addr) &- 1
+      ram.writeByte(addr:addr, value: v)
+      cpu.setStatusZ(should:v == 0)
+      cpu.setStatusN(should:v & 0x80 != 0)
 
     // Subtracts one from the X register setting the zero and negative
     // flags as appropriate.
@@ -732,8 +732,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of X is set
     case .DEX:
       cpu.X = cpu.X &- 1
-      cpu.setStatusZ(cpu.X == 0)
-      cpu.setStatusN(cpu.X & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.X == 0)
+      cpu.setStatusN(should:cpu.X & 0x80 != 0)
       
     // Subtracts one from the Y register setting the zero and negative
     // flags as appropriate.
@@ -747,8 +747,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of Y is set
     case .DEY:
       cpu.Y = cpu.Y &- 1
-      cpu.setStatusZ(cpu.Y == 0)
-      cpu.setStatusN(cpu.Y & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.Y == 0)
+      cpu.setStatusN(should:cpu.Y & 0x80 != 0)
       
     // An exclusive OR is performed, bit by bit, on the accumulator
     // contents using the contents of a byte of memory.
@@ -761,9 +761,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 set
     case .EOR:
-      cpu.A = cpu.A ^ ram.readByte(addr)
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.A = cpu.A ^ ram.readByte(addr:addr)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
 
     // Adds one to the value held at a specified memory location setting
     // the zero and negative flags as appropriate.
@@ -776,10 +776,10 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of the result is set
     case .INC:
-      let operand = ram.readByte(addr) &+ 1
-      ram.writeByte(addr, value: operand)
-      cpu.setStatusZ(operand == 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      let operand = ram.readByte(addr:addr) &+ 1
+      ram.writeByte(addr:addr, value: operand)
+      cpu.setStatusZ(should:operand == 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
       
     // Adds one to the X register setting the zero and negative flags as
     // appropriate.
@@ -793,8 +793,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of X is set
     case .INX:
       cpu.X = cpu.X &+ 1
-      cpu.setStatusZ(cpu.X == 0)
-      cpu.setStatusN(cpu.X & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.X == 0)
+      cpu.setStatusN(should:cpu.X & 0x80 != 0)
       
     // Adds one to the Y register setting the zero and negative flags as
     // appropriate.
@@ -808,8 +808,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of Y is set
     case .INY:
       cpu.Y = cpu.Y &+ 1
-      cpu.setStatusZ(cpu.Y == 0)
-      cpu.setStatusN(cpu.Y & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.Y == 0)
+      cpu.setStatusN(should:cpu.Y & 0x80 != 0)
 
     // Sets the program counter to the address specified by the operand.
     //
@@ -835,7 +835,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .JSR:
-      cpu.push2Byte(cpu.PC &- 1, ram: ram)
+      cpu.push2Byte(value:cpu.PC &- 1, ram: ram)
       cpu.PC = addr
       
     // Loads a byte of memory into the accumulator setting the zero and
@@ -849,9 +849,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of A is set
     case .LDA:
-      cpu.A = ram.readByte(addr)
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.A = ram.readByte(addr:addr)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       
     // Loads a byte of memory into the X register setting the zero and
     // negative flags as appropriate.
@@ -864,9 +864,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of X is set
     case .LDX:
-      cpu.X = ram.readByte(addr)
-      cpu.setStatusZ(cpu.X == 0)
-      cpu.setStatusN(cpu.X & 0x80 != 0)
+      cpu.X = ram.readByte(addr:addr)
+      cpu.setStatusZ(should:cpu.X == 0)
+      cpu.setStatusN(should:cpu.X & 0x80 != 0)
 
     // Loads a byte of memory into the Y register setting the zero and
     // negative flags as appropriate.
@@ -879,9 +879,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of Y is set
     case .LDY:
-      cpu.Y = ram.readByte(addr)
-      cpu.setStatusZ(cpu.Y == 0)
-      cpu.setStatusN(cpu.Y & 0x80 != 0)
+      cpu.Y = ram.readByte(addr:addr)
+      cpu.setStatusZ(should:cpu.Y == 0)
+      cpu.setStatusN(should:cpu.Y & 0x80 != 0)
 
     // Each of the bits in M is shift one place to the right. The bit that
     // was in bit 0 is shifted into the carry flag. Bit 7 is set to zero.
@@ -896,17 +896,17 @@ struct OP {
     case .LSR:
       var operand: UInt8
       if addrMode == .Accumulator {
-        cpu.setStatusC(cpu.A & 1 != 0 )
+        cpu.setStatusC(should:cpu.A & 1 != 0 )
         cpu.A >>= 1
         operand = cpu.A
       } else {
-        operand = ram.readByte(addr)
-        cpu.setStatusC(operand & 1 != 0)
+        operand = ram.readByte(addr:addr)
+        cpu.setStatusC(should:operand & 1 != 0)
         operand >>= 1
-        ram.writeByte(addr, value: operand)
+        ram.writeByte(addr:addr, value: operand)
       }
-      cpu.setStatusZ(operand == 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      cpu.setStatusZ(should:operand == 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
       
     // The NOP instruction causes no changes to the processor other than
     // the normal incrementing of the program counter to the next
@@ -933,9 +933,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 set
     case .ORA:
-      cpu.A = cpu.A | ram.readByte(addr)
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.A = cpu.A | ram.readByte(addr:addr)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       
     // Pushes a copy of the accumulator on to the stack.
     //
@@ -947,7 +947,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .PHA:
-      cpu.pushByte(cpu.A, ram: ram)
+      cpu.pushByte(value:cpu.A, ram: ram)
     
     // Pushes a copy of the status flags on to the stack.
     //
@@ -959,7 +959,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .PHP:
-      cpu.pushByte(cpu.P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram: ram) // set B and U
+      cpu.pushByte(value:cpu.P | StatusBit.B.rawValue | StatusBit.U.rawValue, ram: ram) // set B and U
     
     // Pulls an 8 bit value from the stack and into the accumulator. The
     // zero and negative flags are set as appropriate.
@@ -972,9 +972,9 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Set if bit 7 of A is set
     case .PLA:
-      cpu.A = cpu.popByte(ram)
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.A = cpu.popByte(ram:ram)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       
     // Pulls an 8 bit value from the stack and into the processor
     // flags. The flags will take on new states as determined by the value
@@ -988,7 +988,7 @@ struct OP {
     //         V 	Overflow Flag 	  Set from stack
     //         N 	Negative Flag 	  Set from stack
     case .PLP:
-      cpu.P = cpu.popByte(ram) & 0xef | 0x20 // unset B and U
+      cpu.P = cpu.popByte(ram:ram) & 0xef | 0x20 // unset B and U
       
     // Move each of the bits in A one place to the left. Bit 0 is filled
     // with the current value of the carry flag whilst the old bit 7
@@ -1005,17 +1005,17 @@ struct OP {
       var operand: UInt8
       let c: UInt8 = cpu.getStatusC() ? 1 : 0
       if addrMode == .Accumulator {
-        cpu.setStatusC((cpu.A >> 7) & 1 != 0)
+        cpu.setStatusC(should:(cpu.A >> 7) & 1 != 0)
         cpu.A = (cpu.A << 1) | c
         operand = cpu.A
       } else {
-        operand = ram.readByte(addr)
-        cpu.setStatusC((operand >> 7) & 1 != 0)
+        operand = ram.readByte(addr:addr)
+        cpu.setStatusC(should:(operand >> 7) & 1 != 0)
         operand = (operand << 1) | c
-        ram.writeByte(addr, value: operand)
+        ram.writeByte(addr:addr, value: operand)
       }
-      cpu.setStatusZ(operand == 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      cpu.setStatusZ(should:operand == 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
       
     // Move each of the bits in M one place to the right. Bit 7 is filled
     // with the current value of the carry flag whilst the old bit 0
@@ -1032,17 +1032,17 @@ struct OP {
       var operand: UInt8
       let c: UInt8 = cpu.getStatusC() ? 1 : 0
       if addrMode == .Accumulator {
-        cpu.setStatusC(cpu.A & 1 != 0)
+        cpu.setStatusC(should:cpu.A & 1 != 0)
         cpu.A = (cpu.A >> 1) | (c << 7)
         operand = cpu.A
       } else {
-        operand = ram.readByte(addr)
-        cpu.setStatusC(operand & 1 != 0)
+        operand = ram.readByte(addr:addr)
+        cpu.setStatusC(should:operand & 1 != 0)
         operand = (operand >> 1) | (c << 7)
-        ram.writeByte(addr, value: operand)
+        ram.writeByte(addr:addr, value: operand)
       }
-      cpu.setStatusZ(operand == 0)
-      cpu.setStatusN(operand & 0x80 != 0)
+      cpu.setStatusZ(should:operand == 0)
+      cpu.setStatusN(should:operand & 0x80 != 0)
       
     // The RTI instruction is used at the end of an interrupt processing
     // routine. It pulls the processor flags from the stack followed by
@@ -1056,8 +1056,8 @@ struct OP {
     //         V 	Overflow Flag 	  Set from stack
     //         N 	Negative Flag 	  Set from stack
     case .RTI:
-      cpu.P = cpu.popByte(ram) & 0xef | 0x20 // unset B and U
-      cpu.PC = cpu.pop2Byte(ram)
+      cpu.P = cpu.popByte(ram:ram) & 0xef | 0x20 // unset B and U
+      cpu.PC = cpu.pop2Byte(ram:ram)
       
     // The RTS instruction is used at the end of a subroutine to return to
     // the calling routine. It pulls the program counter (minus one) from
@@ -1071,7 +1071,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .RTS:
-      cpu.PC = cpu.pop2Byte(ram) + 1
+      cpu.PC = cpu.pop2Byte(ram:ram) + 1
       
     // This instruction subtracts the contents of a memory location to the
     // accumulator together with the not of the carry bit. If overflow
@@ -1087,22 +1087,22 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 set
     case .SBC:
       let acc = cpu.A
-      let operand = ram.readByte(addr)
+      let operand = ram.readByte(addr:addr)
       let carry: UInt8 = cpu.getStatusC() ? 1 : 0
       let o = Int(acc) - Int(operand) - (1 - Int(carry))
       cpu.A = acc &- operand &- ( 1 &- carry)
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       if o >= 0 {
-        cpu.setStatusC(true)
+        cpu.setStatusC(should:true)
       } else {
-        cpu.setStatusC(false)
+        cpu.setStatusC(should:false)
       }
 
       if (acc^operand) & 0x80 != 0 && (acc^cpu.A) & 0x80 != 0 {
-        cpu.setStatusV(true)
+        cpu.setStatusV(should:true)
       } else {
-        cpu.setStatusV(false)
+        cpu.setStatusV(should:false)
       }
       
     // Set the carry flag to one.
@@ -1115,7 +1115,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .SEC:
-      cpu.setStatusC(true)
+      cpu.setStatusC(should:true)
       
     // Set the decimal mode flag to one.
     //
@@ -1127,7 +1127,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .SED:
-      cpu.setStatusD(true)
+      cpu.setStatusD(should:true)
     
     // Set the interrupt disable flag to one.
     //
@@ -1139,7 +1139,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .SEI:
-      cpu.setStatusI(true)
+      cpu.setStatusI(should:true)
     
     // Stores the contents of the accumulator into memory.
     //
@@ -1151,7 +1151,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .STA:
-      ram.writeByte(addr, value: cpu.A)
+      ram.writeByte(addr:addr, value: cpu.A)
       
     // Stores the contents of the X register into memory.
     //
@@ -1163,7 +1163,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .STX:
-      ram.writeByte(addr, value: cpu.X)
+      ram.writeByte(addr:addr, value: cpu.X)
       
     // Stores the contents of the Y register into memory.
     //
@@ -1175,7 +1175,7 @@ struct OP {
     //         V 	Overflow Flag 	  Not affected
     //         N 	Negative Flag 	  Not affected
     case .STY:
-      ram.writeByte(addr, value: cpu.Y)
+      ram.writeByte(addr:addr, value: cpu.Y)
       
     // Copies the current contents of the accumulator into the X register
     // and sets the zero and negative flags as appropriate.
@@ -1189,8 +1189,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of X is set
     case .TAX:
       cpu.X = cpu.A
-      cpu.setStatusZ(cpu.X == 0)
-      cpu.setStatusN(cpu.X & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.X == 0)
+      cpu.setStatusN(should:cpu.X & 0x80 != 0)
       
     // Copies the current contents of the accumulator into the Y register
     // and sets the zero and negative flags as appropriate.
@@ -1204,8 +1204,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of Y is set
     case .TAY:
       cpu.Y = cpu.A
-      cpu.setStatusZ(cpu.Y == 0)
-      cpu.setStatusN(cpu.Y & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.Y == 0)
+      cpu.setStatusN(should:cpu.Y & 0x80 != 0)
       
     // Copies the current contents of the stack register into the X
     // register and sets the zero and negative flags as appropriate.
@@ -1219,8 +1219,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of X is set
     case .TSX:
       cpu.X = cpu.SP
-      cpu.setStatusZ(cpu.X == 0)
-      cpu.setStatusN(cpu.X & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.X == 0)
+      cpu.setStatusN(should:cpu.X & 0x80 != 0)
       
     // Copies the current contents of the X register into the accumulator
     // and sets the zero and negative flags as appropriate.
@@ -1234,8 +1234,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of A is set
     case .TXA:
       cpu.A = cpu.X
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       
     // Copies the current contents of the X register into the stack
     // register.
@@ -1262,8 +1262,8 @@ struct OP {
     //         N 	Negative Flag 	  Set if bit 7 of A is set
     case .TYA:
       cpu.A = cpu.Y
-      cpu.setStatusZ(cpu.A == 0)
-      cpu.setStatusN(cpu.A & 0x80 != 0)
+      cpu.setStatusZ(should:cpu.A == 0)
+      cpu.setStatusN(should:cpu.A & 0x80 != 0)
       
     // unofficial
     case .AHX, .ALR, .ANC, .ARR, .AXS, .DCP, .ISC, .KIL, .LAS, .LAX, .RLA, .RRA, .SAX, .SHX, .SHY, .SLO, .SRE, .TAS, .XAA:

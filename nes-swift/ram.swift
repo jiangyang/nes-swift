@@ -26,7 +26,7 @@ class RAM {
   }
   
   init(cpu: CPU, ppu: PPU, apu: APU, cartridge: Cartridge, controller1: Controller, controller2: Controller) {
-    ram = UnsafeMutablePointer<UInt8>(malloc(RAM_SIZE * sizeof(UInt8)))
+    ram = UnsafeMutablePointer<UInt8>.allocate(capacity: RAM_SIZE)
     self.cpu = cpu
     self.ppu = ppu
     self.apu = apu
@@ -64,20 +64,20 @@ class RAM {
     if addr < 0x2000 {
       return ram[Int(addr % 0x0800)]
     } else if addr <= 0x3fff {
-      let o = ppu.readRegister(0x2000 + addr % 8, ram: self)
+        let o = ppu.readRegister(addr:0x2000 + addr % 8, ram: self)
       return o
     } else if addr == 0x4014 {
-      let o = ppu.readRegister(addr, ram: self)
+        let o = ppu.readRegister(addr: addr, ram: self)
       return o
     } else if addr == 0x4015 {
-      return apu.readRegister(addr)
+        return apu.readRegister(addr: addr)
     } else if addr == 0x4016 {
       return controller1.read()
     } else if addr == 0x4017 {
       return controller2.read()
     } else if addr >= 0x6000 && addr <= 0xffff {
       let m = cartridge.mapper
-      return m.read(addr, c: cartridge)
+        return m!.read(addr: addr, c: cartridge)
     } else {
       return 0
     }
@@ -87,28 +87,28 @@ class RAM {
     if addr <= 0x1fff {
       ram[Int(addr % 0x0800)] = value
     } else if addr <= 0x3fff {
-      ppu.writeRegister(0x2000 + addr % 8, value: value, ram: self)
+        ppu.writeRegister(addr:0x2000 + addr % 8, value: value, ram: self)
     } else if addr >= 0x4000 && addr <= 0x4013 {
-      apu.writeRegister(addr, value: value)
+        apu.writeRegister(addr: addr, value: value)
     } else if addr == 0x4014 {
-      ppu.writeRegister(addr, value: value, ram: self)
+      ppu.writeRegister(addr: addr, value: value, ram: self)
     } else if addr ==  0x4015 {
-      apu.writeRegister(addr, value: value)
+      apu.writeRegister(addr: addr, value: value)
     } else if addr == 0x4016 {
-      controller1.write(value)
-      controller2.write(value)
+      controller1.write(value: value)
+      controller2.write(value: value)
     } else if addr == 0x4017 {
-      apu.writeRegister(addr, value: value)
+      apu.writeRegister(addr: addr, value: value)
     } else if addr >= 0x6000 {
       let m = cartridge.mapper
-      m.write(addr, value: value, c: cartridge)
+      m!.write(addr: addr, value: value, c: cartridge)
     }
   }
   
   func read2Byte(atAddr: UInt16) -> UInt16 {
     // little endian
-    let lo8 = self.readByte(atAddr)
-    let hi8 = self.readByte(atAddr + 1)
+    let lo8 = self.readByte(addr:atAddr)
+    let hi8 = self.readByte(addr:atAddr + 1)
     return UInt16(hi8) << 8 | UInt16(lo8)
   }
   
@@ -118,8 +118,8 @@ class RAM {
     //.............|the high byte|.......|the low byte|........
     let hi8Addr = (atAddr & 0xff00) | UInt16(UInt8(atAddr & 0xff) &+ 1)
     
-    let lo8 = self.readByte(atAddr)
-    let hi8 = self.readByte(hi8Addr)
+    let lo8 = self.readByte(addr:atAddr)
+    let hi8 = self.readByte(addr:hi8Addr)
     return UInt16(hi8) << 8 | UInt16(lo8)
   }
   

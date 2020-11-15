@@ -33,7 +33,7 @@ class FirstOrderFilter {
 // cutoffFreq: oscillations per second
 class LowPassFilter: FirstOrderFilter {
   init(sampleRate: Float32, cutoffFreq: Float32) {
-    let c = sampleRate / Float32(M_PI) / cutoffFreq
+    let c = sampleRate / Float32(Double.pi) / cutoffFreq
     let a0i = 1 / (1 + c)
     super.init(b0: a0i, b1: a0i, a1: (1 - c) * a0i)
   }
@@ -41,7 +41,7 @@ class LowPassFilter: FirstOrderFilter {
 
 class HighPassFilter: FirstOrderFilter {
   init(sampleRate: Float32, cutoffFreq: Float32) {
-    let c = sampleRate / Float32(M_PI) / cutoffFreq
+    let c = sampleRate / Float32(Double.pi) / cutoffFreq
     let a0i = 1 / (1 + c)
     super.init(b0: c * a0i, b1: -c * a0i, a1: (1 - c) * a0i)
   }
@@ -54,9 +54,9 @@ struct FilterChain {
     self.filters = filters
   }
   
-  func step(var x: Float32) -> Float32 {
+  func step(x: inout Float32) -> Float32 {
     for f in filters {
-      x = f.step(x)
+      x = f.step(x:x)
     }
     return x
   }
