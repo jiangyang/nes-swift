@@ -53,84 +53,84 @@ class PPU {
   
   // false: +1, true: +32
   var vramIncrementCaluculated: Bool {
-    return PPUCTRL.getBit(2)
+    return PPUCTRL.getBit(at:2)
   }
   // false: 0, true: 0x1000
   var spritePatternTableCalculated: Bool {
-    return PPUCTRL.getBit(3)
+    return PPUCTRL.getBit(at:3)
   }
   // false: 0, true: 0x1000
   var backgroundPatternTableCalculated: Bool {
-    return PPUCTRL.getBit(4)
+    return PPUCTRL.getBit(at:4)
   }
   
   var spriteSizeCalculated: Bool {
-    return PPUCTRL.getBit(5)
+    return PPUCTRL.getBit(at:5)
   }
   
   var nmiEnabledCalculated: Bool {
-    return PPUCTRL.getBit(7)
+    return PPUCTRL.getBit(at:7)
   }
   
   var grayscale: Bool {
-    return PPUMASK.getBit(0)
+    return PPUMASK.getBit(at:0)
   }
   
   var showBackgroundInLeft8PixelCalculated: Bool {
-    return PPUMASK.getBit(1)
+    return PPUMASK.getBit(at:1)
   }
   
   var showSpriteInLeft8PixelCalculated: Bool {
-    return PPUMASK.getBit(2)
+    return PPUMASK.getBit(at:2)
   }
   
   var showBackgroundCalculated: Bool {
-    return PPUMASK.getBit(3)
+    return PPUMASK.getBit(at:3)
   }
   
   var showSpritesCalculated: Bool {
-    return PPUMASK.getBit(4)
+    return PPUMASK.getBit(at:4)
   }
   
   var emphasizeRed: Bool {
-    return PPUMASK.getBit(5)
+    return PPUMASK.getBit(at:5)
   }
   
   var emphasizeGreen: Bool {
-    return PPUMASK.getBit(6)
+    return PPUMASK.getBit(at:6)
   }
   
   var emphasizeBlue: Bool {
-    return PPUMASK.getBit(7)
+    return PPUMASK.getBit(at:7)
   }
   
   var spriteOverflow: Bool {
     get {
-      return PPUSTATUS.getBit(5)
+      return PPUSTATUS.getBit(at:5)
     }
     
     set(newOverflow) {
-      PPUSTATUS = PPUSTATUS.setBit(newOverflow, at: 5)
+      PPUSTATUS = PPUSTATUS.setBit(value:newOverflow, at: 5)
     }
   }
   
   var spriteZeroHit: Bool {
     get {
-      return PPUSTATUS.getBit(6)
+      return PPUSTATUS.getBit(at:6)
     }
     
     set(newZeroHit) {
-      PPUSTATUS = PPUSTATUS.setBit(newZeroHit, at: 6)
+      PPUSTATUS = PPUSTATUS.setBit(value:newZeroHit, at: 6)
     }
   }
   
   var vblankStarted: Bool {
     get {
-      return PPUSTATUS.getBit(7)
+      return PPUSTATUS.getBit(at:7)
     }
     
     set(newVblankStarted) {
-      PPUSTATUS = PPUSTATUS.setBit(newVblankStarted, at: 7)
+      PPUSTATUS = PPUSTATUS.setBit(value:newVblankStarted, at: 7)
     }
   }
   
@@ -140,9 +140,9 @@ class PPU {
 
   
   init() {
-    palette = UnsafeMutablePointer<UInt8>(malloc(32 * sizeof(UInt8)))
-    nameTable = UnsafeMutablePointer<UInt8>(malloc(2048 * sizeof(UInt8)))
-    oam = UnsafeMutablePointer<UInt8>(malloc(256 * sizeof(UInt8)))
+    palette = UnsafeMutablePointer<UInt8>.allocate(capacity: 32)
+    nameTable = UnsafeMutablePointer<UInt8>.allocate(capacity: 2048)
+    oam = UnsafeMutablePointer<UInt8>.allocate(capacity: 256)
     frontBuffer = FrameBuffer()
     backBuffer = FrameBuffer()
     
@@ -168,10 +168,10 @@ class PPU {
     highTileByte = 0
     
     spriteCount = 0
-    spritePatterns = UnsafeMutablePointer<UInt32>(malloc(8 * sizeof(UInt32)))
-    spritePositions = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
-    spritePriorities = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
-    spriteIndexes = UnsafeMutablePointer<UInt8>(malloc(8 * sizeof(UInt8)))
+    spritePatterns = UnsafeMutablePointer<UInt32>.allocate(capacity: 8)
+    spritePositions = UnsafeMutablePointer<UInt8>.allocate(capacity: 8)
+    spritePriorities = UnsafeMutablePointer<UInt8>.allocate(capacity: 8)
+    spriteIndexes = UnsafeMutablePointer<UInt8>.allocate(capacity: 8)
     
     nmiDelay = 0
     nmiPrev = false
@@ -192,12 +192,12 @@ class PPU {
   func readByte(addr: UInt16, c: Cartridge) -> UInt8 {
     let a = addr % 0x4000
     if a < 0x2000 {
-      return c.mapper.read(a, c: c)
+        return c.mapper.read(addr:a, c: c)
     } else if a < 0x3f00 {
       let mirrorMode = Int(c.mirrorMode)
-      return nameTable[mirrorAddress(mirrorMode, addr: a) % 2048]
+        return nameTable[mirrorAddress(mode:mirrorMode, addr: a) % 2048]
     } else if a < 0x4000 {
-      return readPalette(a % 32)
+        return readPalette(addr:a % 32)
     } else {
       return 0
     }
@@ -206,12 +206,12 @@ class PPU {
   func writeByte(addr: UInt16, value: UInt8, c: Cartridge) {
     let a = addr % 0x4000
     if a < 0x2000 {
-      c.mapper.write(a, value: value, c: c)
+        c.mapper.write(addr:a, value: value, c: c)
     } else if a < 0x3f00 {
       let mirrorMode = Int(c.mirrorMode)
-      nameTable[mirrorAddress(mirrorMode, addr: a) % 2048] = value
+        nameTable[mirrorAddress(mode:mirrorMode, addr: a) % 2048] = value
     } else if a < 0x4000 {
-      writePalette(a % 32, value: value)
+        writePalette(addr:a % 32, value: value)
     }
   }
   
@@ -226,18 +226,18 @@ class PPU {
     case 0x2004:
       return oam[Int(OAMADDR)]
     case 0x2007:
-      return readPPUDATA(ram.cartridge)
+        return readPPUDATA(c:ram.cartridge)
     default:
       return 0
     }
   }
   
   func readPPUDATA(c: Cartridge) -> UInt8 {
-    var value = readByte(vramAddr, c: c)
+    var value = readByte(addr:vramAddr, c: c)
     if vramAddr % 0x4000 < 0x3f00 {
       (PPUDATA, value) = (value, PPUDATA)
     } else {
-      PPUDATA = readByte(vramAddr &- 0x1000, c: c)
+        PPUDATA = readByte(addr:vramAddr &- 0x1000, c: c)
     }
     
     if !vramIncrement {
@@ -293,16 +293,16 @@ class PPU {
         write = false
       }
     case 0x2007:
-      writePPUDATA(value, c: ram.cartridge)
+        writePPUDATA(value:value, c: ram.cartridge)
     case 0x4014:
-      writeDMA(value, ram: ram)
+        writeDMA(value:value, ram: ram)
     default:
       break
     }
   }
   
   func writePPUDATA(value: UInt8, c: Cartridge) {
-    writeByte(vramAddr, value: value, c: c)
+    writeByte(addr:vramAddr, value: value, c: c)
     if !vramIncrement {
       vramAddr = vramAddr &+ 1
     } else {
@@ -313,17 +313,17 @@ class PPU {
   func writeDMA(value: UInt8, ram: RAM) {
     var addr = UInt16(value) << 8
     for _ in 0..<256 {
-      oam[Int(OAMADDR)] = ram.readByte(addr)
+      oam[Int(OAMADDR)] = ram.readByte(addr:addr)
       OAMADDR = OAMADDR &+ 1
       addr = addr &+ 1
     }
     ram.cpu.suspend += ram.cpu.cycleCount % 2 == 1 ? 514 : 513
   }
   
-  func step(cpu cpu: CPU, ram:RAM) {
+  func step(cpu: CPU, ram:RAM) {
     let rendering = showBackground || showSprites
     if nmiDelay > 0 {
-      nmiDelay--
+      nmiDelay-=1
       if nmiDelay == 0 && nmiEnabled && vblankStarted {
         cpu.interrupt = Interrupt.NMI
       }
@@ -367,13 +367,13 @@ class PPU {
         case 0:
           writeTileData()
         case 1:
-          readNameTableByte(ram.cartridge)
+          readNameTableByte(c:ram.cartridge)
         case 3:
-          readAttributeTableByte(ram.cartridge)
+          readAttributeTableByte(c:ram.cartridge)
         case 5:
-          readLowTileByte(ram.cartridge)
+          readLowTileByte(c:ram.cartridge)
         case 7:
-          readHighTileByte(ram.cartridge)
+          readHighTileByte(c:ram.cartridge)
         default:
           break
         }
@@ -400,7 +400,7 @@ class PPU {
       // sprites
       if cycleCount == 257 {
         if visibleLine {
-          evaluateSprites(ram.cartridge)
+          evaluateSprites(c:ram.cartridge)
         } else {
           spriteCount = 0
         }
@@ -408,7 +408,7 @@ class PPU {
     }
     
     if scanLineCount == 241 && cycleCount == 1 {
-      startVblank(cpu)
+        startVblank(cpu:cpu)
     }
     
     if preLine && cycleCount == 1 {
@@ -450,7 +450,7 @@ class PPU {
         color = bg
       }
     }
-    backBuffer.set(x: x, y: y, colorIndex: Int(readPalette(UInt16(color)) % 64))
+    backBuffer.set(x: x, y: y, colorIndex: Int(readPalette(addr:UInt16(color)) % 64))
   }
   
   func backgroundPixel() -> UInt8 {
@@ -515,13 +515,13 @@ class PPU {
   }
   
   func readNameTableByte(c: Cartridge) {
-    nameTableByte = readByte(0x2000 | (vramAddr & 0x0fff), c: c)
+    nameTableByte = readByte(addr:0x2000 | (vramAddr & 0x0fff), c: c)
   }
   
   func readAttributeTableByte(c: Cartridge) {
     let a = 0x23c0 | (vramAddr & 0x0c00) | ((vramAddr >> 4) & 0x38) | ((vramAddr >> 2) & 0x07)
     let shift = UInt8(((vramAddr >> 4) & 4) | (vramAddr & 2))
-    attributeTableByte = ((readByte(a, c: c) >> shift ) & 3) << 2
+    attributeTableByte = ((readByte(addr:a, c: c) >> shift ) & 3) << 2
   }
   
   func readLowTileByte(c: Cartridge) {
@@ -529,7 +529,7 @@ class PPU {
     let table: UInt16 = backgroundPatternTable ? 0x1000 : 0
     let tile = UInt16(nameTableByte)
     let a = table + tile * 16 + fineY
-    lowTileByte = readByte(a, c: c)
+    lowTileByte = readByte(addr:a, c: c)
   }
   
   func readHighTileByte(c: Cartridge) {
@@ -537,7 +537,7 @@ class PPU {
     let table: UInt16 = backgroundPatternTable ? 0x1000 : 0
     let tile = UInt16(nameTableByte)
     let a = table + tile * 16 + fineY
-    highTileByte = readByte(a &+ 8, c: c)
+    highTileByte = readByte(addr:a &+ 8, c: c)
   }
   
   func copyX() {
@@ -570,7 +570,7 @@ class PPU {
       case 31:
         y = 0
       default:
-        y++
+        y+=1
       }
       vramAddr = (vramAddr & 0xfc1f) | (y << 5)
     }
@@ -583,17 +583,17 @@ class PPU {
       let y = oam[i * 4 + 0]
       let a = oam[i * 4 + 2]
       let x = oam[i * 4 + 3]
-      let row = scanLineCount - Int(y)
+      var row = scanLineCount - Int(y)
       guard row >= 0 && row < h else {
         continue
       }
       if count < 8 {
-        spritePatterns[count] = readSpritePattern(i, row: row, c: c)
+        spritePatterns[count] = readSpritePattern(i:i, row: &row, c: c)
         spritePositions[count] = x
         spritePriorities[count] = (a >> 5) & 1
         spriteIndexes[count] = UInt8(i)
       }
-      count++
+      count+=1
     }
     
     if count > 8 {
@@ -603,9 +603,9 @@ class PPU {
     spriteCount = count
   }
   
-  func readSpritePattern(i: Int, var row: Int, c: Cartridge) -> UInt32 {
-    var tile = UInt16(oam[i * 4 + 1])
+  func readSpritePattern(i: Int, row: inout Int, c: Cartridge) -> UInt32 {
     let attrs = oam[i * 4 + 2]
+    var tile = UInt16(oam[i * 4 + 1])
     var addr: UInt16
     
     if !spriteSize {
@@ -621,15 +621,15 @@ class PPU {
       let table: UInt16 = 0x1000 * (tile & 1)
       tile &= 0xfe
       if row > 7 {
-        tile++
+        tile+=1
         row -= 8
       }
       addr = table + tile * 16 + UInt16(row)
     }
     
     let a = (attrs & 3) << 2
-    lowTileByte = readByte(addr, c: c)
-    highTileByte = readByte(addr &+ 8, c: c)
+    lowTileByte = readByte(addr:addr, c: c)
+    highTileByte = readByte(addr:addr &+ 8, c: c)
     var data: UInt32 = 0
     for _ in 0..<8 {
       let p1,p2 : UInt8

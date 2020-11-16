@@ -9,7 +9,7 @@ let LENGTH_TABLE: [UInt8] = [
 
 let PULSE_TABLE: [Float32] = {
   () -> [Float32] in
-  var t = [Float32](count: 31, repeatedValue: 0.0)
+  var t = [Float32](repeating: 0.0, count: 31)
   for i in 0..<31 {
     t[i] = 95.52 / (8128.0 / Float32(i) + 100)
   }
@@ -18,7 +18,7 @@ let PULSE_TABLE: [Float32] = {
 
 let TND_TABLE: [Float32] = {
   () -> [Float32] in
-  var t = [Float32](count: 203, repeatedValue: 0.0)
+  var t = [Float32](repeating: 0.0, count: 203)
   for i in 0..<203 {
     t[i] = 163.67 / (24329.0 / Float32(i) + 100)
   }
@@ -60,19 +60,19 @@ class APU {
   
   var STATUS: UInt8
   var enablePulse1: Bool {
-    return STATUS.getBit(0)
+    return STATUS.getBit(at:0)
   }
   var enablePulse2: Bool {
-    return STATUS.getBit(1)
+    return STATUS.getBit(at:1)
   }
   var enableTriangle: Bool {
-    return STATUS.getBit(2)
+    return STATUS.getBit(at:2)
   }
   var enableNoise: Bool {
-    return STATUS.getBit(3)
+    return STATUS.getBit(at:3)
   }
   var enableDMC: Bool {
-    return STATUS.getBit(4)
+    return STATUS.getBit(at:4)
   }
   
   init(out: AudioOut, sampleRate: Double) {
@@ -96,7 +96,7 @@ class APU {
         LowPassFilter(sampleRate: Float32(sampleRate), cutoffFreq: 14000)
       ])
     } else {
-      filterChain = .None
+      filterChain = nil
     }
   }
   
@@ -208,13 +208,13 @@ class APU {
   
   func step(ram: RAM) {
     let cycle1 = cycleCount
-    cycleCount++
+    cycleCount+=1
     let cycle2 = cycleCount
-    stepTimer(ram)
+    stepTimer(ram:ram)
     let f1 = Int(Double(cycle1) / Double(FRAME_COUNTER_RATE))
     let f2 = Int(Double(cycle2) / Double(FRAME_COUNTER_RATE))
     if f1 != f2 {
-      stepFrameCounter(ram)
+        stepFrameCounter(ram:ram)
     }
     if sampleRate != 0 {
       let s1 = Int(Double(cycle1) / sampleRate)
@@ -227,7 +227,8 @@ class APU {
   
   func sendSample() {
     if let f = filterChain {
-      out <- f.step(output())
+      var o = output()
+      out <- f.step(x: &o)
     }
   }
   
@@ -262,7 +263,7 @@ class APU {
         stepEnvelope()
         stepSweep()
         stepLength()
-        fireIRQ(ram)
+        fireIRQ(ram:ram)
       default:
         break
       }
@@ -288,7 +289,7 @@ class APU {
       pulse1.stepTimer()
       pulse2.stepTimer()
       noise.stepTimer()
-      dmc.stepTimer(ram)
+        dmc.stepTimer(ram:ram)
     }
     triangle.stepTimer()
   }

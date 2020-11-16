@@ -1,6 +1,6 @@
 import Foundation
 
-enum NESFileError : ErrorType {
+enum NESFileError : Error {
   case FileNotLoaded
   case NotNESFile
   case TooFewPRGROM
@@ -20,16 +20,16 @@ class Cartridge {
   var mapper: Mapper!
   
   init(path: String) throws {
-    SRAM = [UInt8](count: 2000, repeatedValue: 0)
+    SRAM = [UInt8](repeating: 0, count: 2000)
     mirrorMode = 0
     battery = false
     prgBytes = 0
     chrBytes = 0
-    PRGROM = UnsafeMutablePointer<UInt8>(malloc(32 * PRG_BANK_SIZE * sizeof(UInt8)))
-    CHRROM = UnsafeMutablePointer<UInt8>(malloc(32 * CHR_BANK_SIZE * sizeof(UInt8)))
+    PRGROM = UnsafeMutablePointer<UInt8>.allocate(capacity: (32 * PRG_BANK_SIZE))
+    CHRROM = UnsafeMutablePointer<UInt8>.allocate(capacity: (32 * CHR_BANK_SIZE))
     
     if let content = NSData(contentsOfFile: path) {
-      var header = [UInt8](count: 16, repeatedValue: 0)
+      var header = [UInt8](repeating: 0, count: 16)
       // read 16 byte header
       content.getBytes(&header, length: 16)
       if header.prefix(4) != [0x4e, 0x45, 0x53, 0x1a] {

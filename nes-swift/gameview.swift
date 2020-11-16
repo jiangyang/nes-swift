@@ -17,7 +17,7 @@ class GameView: MTKView {
   }
   
   var nes: NES?
-  var keys: [Bool] = [Bool](count: 8, repeatedValue: false)
+  var keys: [Bool] = [Bool](repeating: false, count: 8)
   
   var time: Double = CACurrentMediaTime()
   
@@ -39,30 +39,30 @@ class GameView: MTKView {
       Vertex(position: [ 1.0,  1.0, 0.0, 1.0], texCoord: [1, 0]),
       Vertex(position: [ 1.0, -1.0, 0.0, 1.0], texCoord: [1, 1])
     ]
-    vertex_buffer = device!.newBufferWithBytes(vertex_data, length:  strideof(Vertex) * vertex_data.count, options:[])
+    vertex_buffer = device!.makeBuffer(bytes: vertex_data, length:vertex_data.count * MemoryLayout<Vertex>.stride, options:[])
     // pipeline, shaders etc
-    let lib = device!.newDefaultLibrary()
+    let lib = device!.makeDefaultLibrary()
     guard let _ = lib else {
       Swift.print("no default library")
       return
     }
     let pd = MTLRenderPipelineDescriptor()
-    pd.vertexFunction = lib!.newFunctionWithName("vertex_shader")
-    pd.fragmentFunction = lib!.newFunctionWithName("fragment_shader")
-    pd.colorAttachments[0].pixelFormat = .BGRA8Unorm
+    pd.vertexFunction = lib!.makeFunction(name: "vertex_shader")
+    pd.fragmentFunction = lib!.makeFunction(name: "fragment_shader")
+    pd.colorAttachments[0].pixelFormat = .bgra8Unorm
     do {
-      try renderPipeline = device!.newRenderPipelineStateWithDescriptor(pd)
+        try renderPipeline = device!.makeRenderPipelineState(descriptor: pd)
     } catch let err {
       Swift.print("nose \(err)")
     }
     // sampler
     let sd = MTLSamplerDescriptor()
-    sd.minFilter = MTLSamplerMinMagFilter.Nearest
-    sd.magFilter = MTLSamplerMinMagFilter.Nearest
-    sd.sAddressMode = MTLSamplerAddressMode.Repeat
-    sd.tAddressMode = MTLSamplerAddressMode.Repeat
+    sd.minFilter = MTLSamplerMinMagFilter.nearest
+    sd.magFilter = MTLSamplerMinMagFilter.nearest
+    sd.sAddressMode = MTLSamplerAddressMode.repeat
+    sd.tAddressMode = MTLSamplerAddressMode.repeat
     sd.normalizedCoordinates = true
-    sampler = device!.newSamplerStateWithDescriptor(sd)
+    sampler = device!.makeSamplerState(descriptor: sd)
     
     // nes
     nes = NES(path: ROM_PATH)
@@ -73,13 +73,13 @@ class GameView: MTKView {
     time = CACurrentMediaTime()
   }
   
-  override func drawRect(dirtyRect: NSRect) {
-    super.drawRect(dirtyRect)
+    override func draw(_ dirtyRect: NSRect) {
+    super.draw(dirtyRect)
     if let _ = device {
       if let _ = self.nes {
         let now = CACurrentMediaTime()
         let dt = now - time
-        update(dt)
+        update(dt: dt)
         renderNes()
         time = CACurrentMediaTime()
       } else {
@@ -94,16 +94,16 @@ class GameView: MTKView {
     guard dt < 1 else {
       return
     }
-    nes!.c1.set(keys)
-    nes!.stepDt(dt)
+    nes!.c1.set(input: keys)
+    nes!.stepDt(dt: dt)
   }
   
-  override func keyDown(theEvent: NSEvent) {
-    setKeys(theEvent.keyCode, down: true)
+  override func keyDown(with: NSEvent) {
+    setKeys(code: with.keyCode, down: true)
   }
   
-  override func keyUp(theEvent: NSEvent) {
-    setKeys(theEvent.keyCode, down: false)
+  override func keyUp(with: NSEvent) {
+    setKeys(code: with.keyCode, down: false)
   }
   
   func setKeys(code: UInt16, down: Bool) {
@@ -130,67 +130,66 @@ class GameView: MTKView {
   }
   
   func renderNes() {
-    let texture = textureFromBuffer(nes!.ppu.frontBuffer.pix, width: 256, height: 240)
-    render(texture)
+    let texture = textureFromBuffer(buffer: nes!.ppu.frontBuffer.pix, width: 256, height: 240)
+    render(texture: texture)
   }
   
   func textureFromBuffer(buffer: UnsafeMutablePointer<UInt8>, width: Int, height: Int) -> MTLTexture {
     let bytesPerPixel = 4
     let bytesPerRow = bytesPerPixel * width
     
-    let texDescriptor = MTLTextureDescriptor.texture2DDescriptorWithPixelFormat(MTLPixelFormat.RGBA8Unorm, width: width, height: height, mipmapped: false)
-    let texture = device!.newTextureWithDescriptor(texDescriptor)
+    let texDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: MTLPixelFormat.rgba8Unorm, width: width, height: height, mipmapped: false)
+    let texture = device!.makeTexture(descriptor: texDescriptor)
     
     let region = MTLRegionMake2D(0, 0, width, height)
-    texture.replaceRegion(region, mipmapLevel: 0, withBytes: buffer, bytesPerRow: bytesPerRow)
-    return texture
+    texture!.replace(region: region, mipmapLevel: 0, withBytes: buffer, bytesPerRow: bytesPerRow)
+    return texture!
   }
   
   func renderError() {
     let texture = textureTestPattern()
-    render(texture)
+    render(texture: texture)
   }
   
   func textureTestPattern() -> MTLTexture {
-    let image = NSImage(contentsOfFile: NSBundle.mainBundle().pathForResource("color_pattern", ofType: "png")!)!
-    let imageRef = image.CGImageForProposedRect(nil, context: .None, hints: .None)
-    let (width, height) = (CGImageGetWidth(imageRef), CGImageGetHeight(imageRef))
+    let image = NSImage(contentsOfFile: Bundle.main.path(forResource: "color_pattern", ofType: "png")!)!
+    let imageRef = image.cgImage(forProposedRect: nil, context: nil, hints: nil)!
     let bytesPerPixel = 4
-    let bytesPerRow = bytesPerPixel * width
+    let bytesPerRow = bytesPerPixel * imageRef.width
     let bitsPerComponent = 8
-    let colorSpace = CGColorSpaceCreateDeviceRGB()!
+    let colorSpace = CGColorSpaceCreateDeviceRGB()
     
-    let context = CGBitmapContextCreate(nil, width, height, bitsPerComponent, bytesPerRow, colorSpace, CGImageAlphaInfo.PremultipliedLast.rawValue)
-    let bounds = CGRect(x: 0, y: 0, width: Int(width), height: Int(height))
-    CGContextClearRect(context, bounds)
-    CGContextDrawImage(context, bounds, imageRef)
+    let context = CGContext(data: nil, width: imageRef.width, height: imageRef.height, bitsPerComponent: bitsPerComponent, bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+    let bounds = CGRect(x: 0, y: 0, width: Int(imageRef.width), height: Int(imageRef.height))
+    context!.clear(bounds)
+    context!.draw(imageRef, in: bounds)
     
-    let texDescriptor = MTLTextureDescriptor.texture2DDescriptorWithPixelFormat(MTLPixelFormat.RGBA8Unorm, width: Int(width), height: Int(height), mipmapped: false)
-    let texture = device!.newTextureWithDescriptor(texDescriptor)
+    let texDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: MTLPixelFormat.rgba8Unorm, width: Int(imageRef.width), height: Int(imageRef.height), mipmapped: false)
+    let texture = device!.makeTexture(descriptor: texDescriptor)
     
-    let pixelsData = CGBitmapContextGetData(context)
-    let region = MTLRegionMake2D(0, 0, Int(width), Int(height))
-    texture.replaceRegion(region, mipmapLevel: 0, withBytes: pixelsData, bytesPerRow: bytesPerRow)
+    let pixelsData = context!.data!
+    let region = MTLRegionMake2D(0, 0, Int(imageRef.width), Int(imageRef.height))
+    texture!.replace(region: region, mipmapLevel: 0, withBytes: pixelsData, bytesPerRow: bytesPerRow)
     
-    return texture
+    return texture!
   }
   
   func render(texture: MTLTexture) {
-    if let rpd = currentRenderPassDescriptor, drawable = currentDrawable {
+    if let rpd = currentRenderPassDescriptor, let drawable = currentDrawable {
       rpd.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 0)
-      rpd.colorAttachments[0].loadAction = .Clear
-      rpd.colorAttachments[0].storeAction = .Store
-      let command_buffer = device!.newCommandQueue().commandBuffer()
-      let command_encoder = command_buffer.renderCommandEncoderWithDescriptor(rpd)
-      command_encoder.setCullMode(MTLCullMode.Front)
-      command_encoder.setRenderPipelineState(renderPipeline)
-      command_encoder.setVertexBuffer(vertex_buffer, offset: 0, atIndex: 0)
-      command_encoder.setFragmentTexture(texture, atIndex: 0)
-      command_encoder.setFragmentSamplerState(sampler, atIndex: 0)
-      command_encoder.drawPrimitives(.TriangleStrip, vertexStart: 0, vertexCount: 4)
-      command_encoder.endEncoding()
-      command_buffer.presentDrawable(drawable)
-      command_buffer.commit()
+        rpd.colorAttachments[0].loadAction = .clear
+        rpd.colorAttachments[0].storeAction = .store
+      let command_buffer = device!.makeCommandQueue()!.makeCommandBuffer()
+        let command_encoder = command_buffer!.makeRenderCommandEncoder(descriptor: rpd)
+        command_encoder!.setCullMode(MTLCullMode.front)
+      command_encoder!.setRenderPipelineState(renderPipeline)
+        command_encoder!.setVertexBuffer(vertex_buffer, offset: 0, index: 0)
+        command_encoder!.setFragmentTexture(texture, index: 0)
+        command_encoder!.setFragmentSamplerState(sampler, index: 0)
+        command_encoder!.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+      command_encoder!.endEncoding()
+        command_buffer!.present(drawable)
+      command_buffer!.commit()
     }
   }
 }

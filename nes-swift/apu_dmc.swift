@@ -64,25 +64,25 @@ class DMC {
     if !enabled {
       return
     }
-    stepReader(ram)
+    stepReader(ram:ram)
     if tickValue == 0 {
       tickValue = tickPeriod
       stepShifter()
     } else {
-      tickValue--
+      tickValue-=1
     }
   }
   
   func stepReader(ram: RAM) {
     if currentLength > 0 && bitCount == 0 {
       ram.cpu.suspend += 4
-      shiftRegister = ram.readByte(currentAddress)
+        shiftRegister = ram.readByte(addr:currentAddress)
       bitCount = 8
-      currentAddress++
+      currentAddress+=1
       if currentAddress == 0 {
         currentAddress = 0x8000
       }
-      currentLength--
+      currentLength-=1
       if currentLength == 0 && loop {
         restart()
       }
@@ -103,7 +103,7 @@ class DMC {
       }
     }
     shiftRegister >>= 1
-    bitCount--
+    bitCount-=1
   }
   
   func output() -> UInt8 {

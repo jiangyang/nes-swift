@@ -107,7 +107,7 @@ class Pulse {
       timerValue = timerPeriod
       dutyValue = (dutyValue + 1) % 8
     } else {
-      timerValue--
+      timerValue-=1
     }
   }
   
@@ -117,10 +117,10 @@ class Pulse {
       envelopeValue = envelopePeriod
       envelopeStart = false
     } else if envelopeValue > 0 {
-      envelopeValue--
+      envelopeValue-=1
     } else {
       if envelopeVolume > 0 {
-        envelopeVolume--
+        envelopeVolume-=1
       } else if envelopeLoop {
         envelopeVolume = 15
       }
@@ -136,7 +136,7 @@ class Pulse {
       sweepValue = sweepPeriod
       sweepReload = false
     } else if sweepValue > 0 {
-      sweepValue--
+      sweepValue-=1
     } else {
       if sweepEnabled {
         sweep()
@@ -147,7 +147,7 @@ class Pulse {
   
   func stepLength() {
     if lengthEnabled && lengthValue > 0 {
-      lengthValue--
+      lengthValue-=1
     }
   }
   
@@ -156,7 +156,7 @@ class Pulse {
     if sweepNegate {
       timerPeriod -= delta
       if channelNumber == 1 {
-        timerPeriod--
+        timerPeriod-=1
       }
     } else {
       timerPeriod += delta

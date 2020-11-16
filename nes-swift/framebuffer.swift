@@ -9,7 +9,7 @@ class FrameBuffer {
   let h: Int = 240
   
   init() {
-    pix = UnsafeMutablePointer<UInt8>(malloc(stride * h * sizeof(UInt8)))
+    pix = UnsafeMutablePointer<UInt8>.allocate(capacity: stride * h)
     for i in 0..<(stride * h) {
       if i % 4 == 3 {
         pix[i] = 0xff
@@ -18,13 +18,13 @@ class FrameBuffer {
       }
     }
     
-    colors = UnsafeMutablePointer<UInt32>(malloc(64 * sizeof(UInt32)))
+    colors = UnsafeMutablePointer<UInt32>.allocate(capacity: 64)
     for i in 0..<64 {
       colors[i] = ColorPalette[i]
     }
   }
   
-  func set(x x: Int, y: Int, colorIndex: Int) {
+  func set(x: Int, y: Int, colorIndex: Int) {
     guard x >= 0 && x < 256 && y >= 0 && y < 240 else {
       return
     }

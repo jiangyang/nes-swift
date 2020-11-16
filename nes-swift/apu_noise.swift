@@ -80,7 +80,7 @@ class Noise {
       shiftRegister >>= 1
       shiftRegister |= (b1 ^ b2) << 14
     } else {
-      timerValue--
+      timerValue-=1
     }
   }
   
@@ -90,10 +90,10 @@ class Noise {
       envelopeValue = envelopePeriod
       envelopeStart = false
     } else if envelopeValue > 0 {
-      envelopeValue--
+      envelopeValue-=1
     } else {
       if envelopeVolume > 0 {
-        envelopeVolume--
+        envelopeVolume-=1
       } else if envelopeLoop {
         envelopeVolume = 15
       }
@@ -103,7 +103,7 @@ class Noise {
   
   func stepLength() {
     if lengthEnabled && lengthValue > 0 {
-      lengthValue--
+      lengthValue-=1
     }
   }
   

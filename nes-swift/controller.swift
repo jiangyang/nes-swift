@@ -9,7 +9,7 @@ class Controller {
   var strobe: Bool
   
   init() {
-    state = [Bool](count: 8, repeatedValue: false)
+    state = [Bool](repeating: false, count: 8)
     index = 0
     strobe = false
   }
@@ -23,7 +23,7 @@ class Controller {
     if index < 8 {
       o = state[index] ? 1 : 0
     }
-    index++
+    index+=1
     index = strobe ? 0 : index
     return o
   }
